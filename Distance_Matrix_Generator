@@ -1,0 +1,127 @@
+#Generates distance matrix of multiple sequences (16065x16065 tested) using PMBEC scoring matrix for future cluster computation
+
+Sys.getenv("R_LIBS_USER") #For setting library in clustercomputing
+options(repos = c(CRAN = "http://cran.rstudio.com"))
+
+#Packages
+if(!require(seqinr)) install.packages("seqinr",repos = "http://cran.us.r-project.org")
+if(!require(bio3d)) install.packages("bio3d",repos = "http://cran.us.r-project.org")
+if(!require(openxlsx)) install.packages("openxlsx",repos = "http://cran.us.r-project.org")
+if(!require(stringr)) install.packages("stringr",repos = "http://cran.us.r-project.org")
+if(!require(seqRFLP)) install.packages("seqRFLP",repos = "http://cran.us.r-project.org")
+if(!require(dplyr)) install.packages("dplyr",repos = "http://cran.us.r-project.org")
+
+#Generate All Alignments
+
+print("checkpoint1")
+
+#USER INPUTS!
+Name <- "UC" #Target Sequence Name
+A_prot <- read.alignment("Alignments/A_prot.fasta","fasta", forceToLower = FALSE)
+A_prot_2 <- read.alignment("Alignments/A_prot_2.fasta","fasta", forceToLower = FALSE)
+B_prot <- read.alignment("Alignments/B_prot.fasta","fasta", forceToLower = FALSE)
+B_prot_2 <- read.alignment("Alignments/B_prot_2.fasta","fasta", forceToLower = FALSE)
+C_prot <- read.alignment("Alignments/C_prot.fasta","fasta", forceToLower = FALSE)
+C_prot_2 <- read.alignment("Alignments/C_prot_2.fasta","fasta", forceToLower = FALSE)
+E_prot <- read.alignment("Alignments/E_prot.fasta","fasta", forceToLower = FALSE)
+F_prot <- read.alignment("Alignments/F_prot.fasta","fasta", forceToLower = FALSE)
+G_prot <- read.alignment("Alignments/G_prot.fasta","fasta", forceToLower = FALSE)
+Patr_A <- read.alignment("Alignments/Patr_A.fasta","fasta", forceToLower = FALSE)
+Patr_B <- read.alignment("Alignments/Patr_B.fasta","fasta", forceToLower = FALSE)
+Patr_C <- read.alignment("Alignments/Patr_C.fasta","fasta", forceToLower = FALSE)
+Mamu_A <- read.alignment("Alignments/Mamu_A.fasta","fasta", forceToLower = FALSE)
+Sus_1 <- read.alignment("Alignments/Sus_1.fasta","fasta", forceToLower = FALSE)
+Sus_2 <- read.alignment("Alignments/Sus_2.fasta","fasta", forceToLower = FALSE)
+Sus_3 <- read.alignment("Alignments/Sus_3.fasta","fasta", forceToLower = FALSE)
+
+#B_Pocket <- c(102,117,164,160,163,160,168) #D_pocket
+
+#From Saper 1991 (zooming in 2015)
+#B_Pocket <- c(80,83,84,87,98,119,126,146,149,150) #F_Pocket
+#B_Pocket <- c(79,80,81,82,83,84,85,86,87,88,97,98,99,118,119,120,125,126,127,145,146,147,148,149,150,151) #F_Pocket plus adjacent
+
+B_Pocket <- c(7,9,24,34,45,66,69,70,73,102) #B_Pocket
+
+print("checkpoint2")
+
+aa <- c("g","a","r","h","k","d","e","s","t","n","q","c","p","v","i","l","m","f","y","w")
+poslist <- vector("list",20)
+for (j in 1:20) {
+  poslist[j] <- gregexpr(aa[j], A_prot$seq[1])
+}
+
+filenames <- list.files(path = "Alignments")
+filenames <- sub('\\.fasta$', '', filenames) 
+
+
+for (p in 1:length(filenames)) { 
+  seqdata <- NULL
+  seqdata <- list()
+for (i in 1:length(get(filenames[p])$seq)) {
+  for (j in 1:20) {
+    poslist[j] <- gregexpr(aa[j], get(filenames[p])$seq[i]) #sequence 1, MHC 1
+  }
+  poslist_result <- do.call(rbind, Map(data.frame, A = poslist, B = aa))
+  poslist_order <- poslist_result[order(poslist_result$A),]
+  B_Pocket_adjust <- poslist_order$A[B_Pocket]
+  seqdata[i] <- as.vector(paste(substring(get(filenames[p])$seq[i], B_Pocket_adjust, B_Pocket_adjust), sep = "", collapse = ""))
+} 
+assign(paste("seqdata_",filenames[p], sep = ""), seqdata)
+}
+
+print("checkpoint3")
+
+for (p in 1:length(filenames)) {
+  seqdata_name <- get(filenames[p])$nam
+  seqdata_seq <-  unlist(get(paste("seqdata_",filenames[p], sep = "")))
+  assign(paste0("maindata_",filenames[p]), data.frame(seqdata_name, seqdata_seq))
+  dataname <- get(paste0("maindata_",filenames[p]))
+  if (any(grepl("NA", get(paste0("maindata_",filenames[p]))$seqdata_seq, ignore.case = FALSE))) {
+    assign(paste0("finaldata_",filenames[p]), value = dataname[- grep("NA", dataname$seqdata_seq, ignore.case = FALSE),]) }
+    else {
+      assign(paste0("finaldata_",filenames[p]), get(paste0("maindata_",filenames[p])))
+  }
+}
+
+print("checkpoint4")
+
+All_data <- NULL
+for (p in 1:length(filenames)) {
+ All_data <- rbind(All_data, get(paste0("finaldata_",filenames[p])))
+}
+
+#dataframe2fas(finaldata_A_prot, file = "test.fasta")
+
+#######
+#Rt-SNE Analysis of data, like principle component analysis but more advanced
+PMBEC <- read.xlsx("PMBEC_lower_-0.2gap.xlsx", rowNames = TRUE)
+
+#Outputlist <- matrix(, nrow = 1, ncol = 2447)
+
+print("Job starting at...")
+print(Sys.time())
+Outputlist <- NULL #matrix(, nrow = 1, ncol = 2447)
+for (q in 1:5) { #
+  Inputlist <- as.vector(0)
+  for (p in 1:length(All_data$seqdata_seq)) {
+    score <- 0
+    for (i in 1:nchar(as.character(All_data[1,2]))){
+      score <- score + PMBEC[substring(All_data$seqdata_seq[p],i,i),
+                             substring(All_data$seqdata_seq[q],i,i)]
+    }
+    Inputlist[[p]] <- as.numeric(score)
+  }
+  Outputlist <- rbind(Outputlist, Inputlist)
+  if(q==round(length(All_data$seqdata_seq)*0.2)){print("Job 20% complete")
+  } else if(q==round(length(All_data$seqdata_seq)*0.4)){print("Job 40% complete")}
+    else if(q==round(length(All_data$seqdata_seq)*0.6)){print("Job 60% complete")}
+      else if(q==round(length(All_data$seqdata_seq)*0.8)){print("Job 80% complete")}
+} 
+print("Job Completed at...")
+print(Sys.time())
+
+print("checkpoint5")
+
+write.csv(Outputlist, file = "B_Pocket_MassScore.csv") #Outputfile to read into clara_cluster code
+
+print("checkpoint6")
