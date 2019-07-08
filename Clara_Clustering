@@ -1,0 +1,27 @@
+#Generates png image of clusters for specific MHC pockets within tested species
+
+if(!require(data.table)) install.packages("data.table",repos= "http://cran.us.r-project.org")
+library(data.table)
+if(!require(cluster)) install.packages("cluster",repos= "http://cran.us.r-project.org")
+library(cluster)
+if(!require(factoextra)) install.packages("factoextra",repos= "http://cran.us.r-project.org")
+library(factoextra)
+
+y <- fread("B_Pocket_MassScore_par.csv", header = F)
+
+system.time({
+y2 <- y
+y2 <- y2[-1,-1]
+y_clara <- clara(y2, k=5, metric = "euclidean", stand = FALSE, samples = 50)
+})
+
+saveRDS(y_clara, file="clara_results_final_5clus.RDS")
+
+system.time({
+clara_plot <- fviz_cluster(y_clara)
+saveRDS(clara_plot, file="clara_plot_final_5clus.RDS")
+})
+
+png(filename = "clara_cluster_final_5clus.png")
+plot(clara_plot)
+dev.off()
