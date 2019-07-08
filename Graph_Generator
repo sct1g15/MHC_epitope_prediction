@@ -1,0 +1,72 @@
+install.packages("ggplot2")
+library(ggplot2)
+library(dplyr)
+
+#Whole Binding Site
+v <- c("Sus_3","Sus_2","Sus_1","Patr_C","Patr_B","Patr_A","Mamu_A","G_prot","F_prot","E_prot","C_prot_2","C_prot","B_prot_2","B_prot","A_prot_2","A_prot")
+
+for (q in 1:length(v)) {
+  assign(paste(v[q],"_Results_N",sep = ""), na.omit(get(paste(v[q],"_Results",sep = ""))))
+}
+
+for (q in 1:length(v)) {
+assign((paste(v[q],"_Results_R",sep = "")), cbind(get(paste(v[q],"_Results_N",sep = "")), as.numeric(get(paste(v[q],"_Results_N", sep = ""))[,2]) + (as.numeric(as.character(A_prot_Results_N[1,2])) - as.numeric(as.character(get(paste(v[q],"_Results_N", sep = ""))[1,2])))))
+}
+
+for (q in 1:length(v)) {
+  Final_List[[q]] <- as.list(get(paste(v[q],"_Results_R",sep = "")))
+}
+
+Final_Data <- rbind(A_prot_Results_R, A_prot_2_Results_R, B_prot_Results_R, B_prot_2_Results_R, C_prot_Results_R, C_prot_2_Results_R, E_prot_Results_R, F_prot_Results_R, G_prot_Results_R, Sus_1_Results_R, Sus_2_Results_R, Sus_3_Results_R, Patr_A_Results_R, Patr_B_Results_R, Patr_C_Results_R, Mamu_A_Results_R)
+Final_Data_df <- as.data.frame(Final_Data)
+
+write.csv(Final_Data_df, file = "UC_BS.csv")
+
+#B Pocket
+for (q in 1:length(v)) {
+  assign(paste(v[q],"_Results_N_B",sep = ""), na.omit(get(paste(v[q],"_Results_B_Pocket",sep = ""))))
+}
+
+for (q in 1:length(v)) {
+  assign((paste(v[q],"_Results_R_B",sep = "")), cbind(get(paste(v[q],"_Results_N_B",sep = "")), as.numeric(get(paste(v[q],"_Results_N_B", sep = ""))[,2]) + (as.numeric(as.character(A_prot_Results_N_B[1,2])) - as.numeric(as.character(get(paste(v[q],"_Results_N_B", sep = ""))[1,2])))))
+}
+
+for (q in 1:length(v)) {
+  Final_List[[q]] <- as.list(get(paste(v[q],"_Results_R_B",sep = "")))
+}
+
+B_Pocket_Data <- rbind(A_prot_Results_R_B, A_prot_2_Results_R_B, B_prot_Results_R_B, B_prot_2_Results_R_B, C_prot_Results_R_B, C_prot_2_Results_R_B, E_prot_Results_R_B, F_prot_Results_R_B, G_prot_Results_R_B, Sus_1_Results_R_B, Sus_2_Results_R_B, Sus_3_Results_R_B, Patr_A_Results_R_B, Patr_B_Results_R_B, Patr_C_Results_R_B, Mamu_A_Results_R_B)
+B_Pocket_Data_df <- as.data.frame(B_Pocket_Data)
+
+
+
+#Misc
+
+Final_whisker <- ggplot(Final_Data_df, aes(y = Final_Data_df$V4, colour = substring(Final_Data_df$V1,14,14) )) + geom_boxplot()
+plot(Final_whisker)
+
+A_curve <- ggplot(A_Results_Ordered_NA, aes(y = A_Results_Ordered_NA$InputList, x = A_Results_Ordered_NA$number, colour = substring(A_Results_Ordered_NA[,2],14,14) )) + geom_point()
+plot(A_curve)
+#Boxplot
+A_whisker <- ggplot(A_Results_Ordered_NA, aes(y = A_Results_Ordered_NA$InputList, colour = substring(A_Results_Ordered_NA[,2],14,14) )) + geom_boxplot()
+plot(A_whisker)
+#B POCKET
+B_Results_Ordered_NA <- read.csv("B_Scoring_50_UC.csv")
+B_Results_Ordered_NA$number <- 1:nrow(B_Results_Ordered_NA)
+
+
+B_curve <- ggplot(B_Results_Ordered_NA, aes(y = B_Results_Ordered_NA$InputList, x = B_Results_Ordered_NA$number, colour = substring(B_Results_Ordered_NA[,2],14,14) )) + geom_point()
+plot(B_curve)
+#Boxplot
+B_whisker <- ggplot(B_Results_Ordered_NA, aes(y = B_Results_Ordered_NA$InputList, colour = substring(B_Results_Ordered_NA[,2],14,14) )) + geom_boxplot()
+plot(B_whisker)
+#F POCKET
+F_Results_Ordered_NA <- read.csv("F_Scoring_50_UC.csv")
+F_Results_Ordered_NA$number <- 1:nrow(F_Results_Ordered_NA)
+
+
+F_curve <- ggplot(F_Results_Ordered_NA, aes(y = F_Results_Ordered_NA$InputList, x = F_Results_Ordered_NA$number, colour = substring(F_Results_Ordered_NA[,2],14,14) )) + geom_point()
+plot(F_curve)
+#Boxplot
+F_whisker <- ggplot(F_Results_Ordered_NA, aes(y = F_Results_Ordered_NA$InputList, colour = substring(F_Results_Ordered_NA[,2],14,14) )) + geom_boxplot()
+plot(F_whisker)
