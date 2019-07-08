@@ -1,1 +1,115 @@
+#Packages
+library(seqinr)
+library(bio3d)
+library(openxlsx)
+library(stringr)
+library(ips)
+
+#USER INPUTS! #Place alignment files in folder named "Alignments" within working directory 
+Alignments <- list.files("Alignments/.")
+for (i in 1:length(Alignments)) {
+  assign(substr(Alignments[i],1,nchar(Alignments[i])-6), read.alignment(paste("Alignments/",Alignments[i], sep = ""),"fasta", forceToLower = FALSE))
+}
+
+BS <- read.csv("BindingProbabilities.csv") #I_Tasser Binding Probabilities
+PMBEC <- read.xlsx("PMBEC_lower_-0.2gap.xlsx", colNames = TRUE, rowNames = TRUE) #PMBEC Matrix
+
+#Remove # for the specific pocket residues desired or create new Pocket vector with residues as shown below.
+
+#Pocket <- c(7,9,24,34,45,63,66,67,70,98) #B_Pocket
+#Pocket <- c(6,7,8,9,10,23,24,25,33,34,35,44,45,46,62,63,64,65,66,67,68,69,70,71,97,98,99) # B_pocket plus adjacent
+
+#Pocket <- c(77,80,81,84,94,115,122,142,145,146) #F_pocket
+#Pocket <- c(76,77,78,79,80,81,82,83,84,85,93,94,95,114,115,116,121,122,123,141,142,143,144,145,146,147) #F_pocket plus adjacent
+
+#Pocket <- c(70,73,74,9,96) #C_Pocket p5?
+#Pocket <- c(8,9,10,69,70,71,72,73,74,75,95,96,97) #C_pocket plus adjacent
+
+#Pocket <- c(98,113,155,156,159,160) #D_Pocket
+#Pocket <- c(97,98,99,112,113,114,154,155,156,157,158,159,160,161) #D_Pocket plus adjacent
+
+#Pocket <- c(98,114,146,152,156) #E_Pocket p7
+#Pocket <- c(97,98,99,112,113,114,145,146,147,151,152,153,155,156,157) #E_Pocket plus adjacent
+
+aa <- c("g","a","r","h","k","d","e","s","t","n","q","c","p","v","i","l","m","f","y","w")
+
+#All alignments must be aligned to the same MHC query sequence placed first in the alignment file.
+
+#Adjusting sequence data to alignment position
+poslist <- vector("list",20)
+for (j in 1:20) {
+ poslist[j] <- gregexpr(aa[j], Alignment$seq[1])
+}
+Alignment_sequence_adjustment <- do.call(rbind, Map(data.frame, A = poslist, B = aa))
+Alignment_sequence_adjustment_OR <- Alignment_sequence_adjustment[order(Alignment_sequence_adjustment$A),]
+
+#concatenating alignment data to binding probabilities
+BindingProbabilities_2 <- cbind(BS, sapply(aa321(as.character(BS$UK_AminoAcids)), tolower))
+Binding_Site_Quantification <- cbind(BindingProbabilities_2$UK_Probabilities, Alignment_sequence_adjustment_OR$A)
+
+#ENSURE QUERYSEQ IS FIRST SEQUENCE IN FASTA FILE!!!
+InputList <- as.vector(0)
+refseq <- as.vector(Alignment$seq[1])
+
+#List Alignment names
+for (h in 1:length(Alignments)) {
+  v[h] <- substr(Alignments[h],1,nchar(Alignments[h])-6)
+}
+
+#Global peptide binding site alignment
+for (q in 1:length(v)) {
+  InputList <- as.vector(0)
+  Alignment <- get(paste(v[q], sep = ""))
+  refseq <- as.vector(Alignment$seq[1])
+  for (j in 1:20) {
+    poslist[j] <- gregexpr(aa[j], Alignment$seq[1])
+  }
+  Alignment_sequence_adjustment <- do.call(rbind, Map(data.frame, A = poslist, B = aa))
+  Alignment_sequence_adjustment_OR <- Alignment_sequence_adjustment[order(Alignment_sequence_adjustment$A),]
+  BindingProbabilities_2 <- cbind(BS, sapply(aa321(as.character(BS$UK_AminoAcids)), tolower))
+  Binding_Site_Quantification <- cbind(BindingProbabilities_2$UK_Probabilities, Alignment_sequence_adjustment_OR$A)
+    for (p in 1:length(Alignment$seq)) { #loop going along HLAs
+      score <- 0
+      for (i in 1:length(Binding_Site_Quantification[,1])) { #loop for going along the sequence
+        if(Binding_Site_Quantification[i,1] < 0.05) {
+          score <- score + 0
+        }
+        else {
+        score <- score + (PMBEC[substring(Alignment$seq[p],Binding_Site_Quantification[i,2],Binding_Site_Quantification[i,2]),
+                          substring(refseq,Binding_Site_Quantification[i,2],Binding_Site_Quantification[i,2])])*Binding_Site_Quantification[i,1]
+    }}
+    InputList[[p]] <- as.numeric(score)
+  }
+  assign(paste(v[q],"_Results", sep = ""), cbind(Alignment$nam, InputList, Alignment$seq))
+}
+
+#Pocket-Specific Alignment #Select pocket as shown above
+
+for (q in 1:length(v)) {
+  InputList <- as.vector(0)
+  Alignment <- get(paste(v[q], sep = ""))
+  refseq <- as.vector(Alignment$seq[1])
+  for (j in 1:20) {
+    poslist[j] <- gregexpr(aa[j], Alignment$seq[1])
+  }
+  Alignment_sequence_adjustment <- do.call(rbind, Map(data.frame, A = poslist, B = aa))
+  Alignment_sequence_adjustment_OR <- Alignment_sequence_adjustment[order(Alignment_sequence_adjustment$A),]
+  BindingProbabilities_2 <- cbind(BS, sapply(aa321(as.character(BS$UK_AminoAcids)), tolower))
+  Binding_Site_Quantification <- cbind(BindingProbabilities_2$UK_Probabilities, Alignment_sequence_adjustment_OR$A)
+  for (p in 1:length(Alignment$seq)) { #loop going along HLAs
+    score <- 0
+    for (i in 1:length(Binding_Site_Quantification[,1])) { #loop for going along the sequence
+      if(Binding_Site_Quantification[i,1] < 0.05) {
+        score <- score + 0
+      }
+      else if(BindingProbabilities_2[i,1] %in% Pocket) {
+        score <- score + (PMBEC[substring(Alignment$seq[p],Binding_Site_Quantification[i,2],Binding_Site_Quantification[i,2]),
+                                substring(refseq,Binding_Site_Quantification[i,2],Binding_Site_Quantification[i,2])])*Binding_Site_Quantification[i,1]
+      }
+      else {
+        score <- score + 0}}
+    InputList[[p]] <- as.numeric(score)
+  }
+  assign(paste(v[q],"_Results_Pocket", sep = ""), cbind(Alignment$nam, InputList, Alignment$seq))
+}
 
